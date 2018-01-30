@@ -1,22 +1,23 @@
 #include <math.h> 
 
 /* Frequency Data */
-#define baseFrequency 14   // Base Frequency in kHz
-#define redMultiplier 4
-#define greenMultiplier 5
-#define purpleMultiplier 7
+#define baseFrequency 14046670   // Base Frequency in mHz
+#define masterMultiplier 6
+#define redMultiplier 8
+#define greenMultiplier 9
+#define purpleMultiplier 5
 
 /* Location Data - decimal lat and long - 1 = 0.71555 */
 #define stepSize 15
 
-#define masterLat 
-#define masterLong 0
-#define redLat 0
-#define redLong 0
-#define greenLat 0
-#define greenLong 0
-#define purpleLat 0
-#define purpleLong 0
+#define masterLat 5023300
+#define masterLong -383300
+#define redLat 4925000
+#define redLong -208300
+#define greenLat 4993300
+#define greenLong -630000
+#define purpleLat 5143300
+#define purpleLong -338300
 
 /* Constants */
 #define earthRadiusM 6371000
@@ -59,8 +60,6 @@ int haversine(float startLat, float startLong, float targetLat, float targetLong
   float targetLatRad = toRadians(targetLat /= 100000);
   float targetLongRad = toRadians(targetLong /= 100000);
 
-  
-  
   float deltaLatRad = targetLatRad - startLatRad;
   float deltaLongRad = targetLongRad - startLongRad;
 
