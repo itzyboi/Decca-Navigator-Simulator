@@ -2,10 +2,11 @@
 
 /* Frequency Data */
 #define baseFrequency 14046670   // Base Frequency in mHz
-#define masterMultiplier 6
-#define redMultiplier 8
-#define greenMultiplier 9
-#define purpleMultiplier 5
+
+/* Comparason Wavelengths */
+#define lambdaMR 889
+#define lambdaMG 1186
+#define lambdaMP 711
 
 /* Location Data - decimal lat and long - 1 = 0.71555 */
 #define stepSize 15
@@ -69,6 +70,8 @@ int haversine(float startLat, float startLong, float targetLat, float targetLong
 }
 
 
+
+}
 
 void setup() {
   // put your setup code here, to run once:
