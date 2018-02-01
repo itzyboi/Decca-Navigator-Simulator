@@ -69,14 +69,31 @@ int haversine(float startLat, float startLong, float targetLat, float targetLong
   return earthRadiusM * c;
 }
 
+int decca(void) {
+  /*  */
+  long distanceMaster = 0;
+  long distanceTransmitter = 0;
+  int phaseMaster = 0;
+  int phaseTransmitter = 0;
+  
+  // Location (Place holder values
+  long currentLat = 5000000;
+  long currentLong = 300000;
 
-
+  // Distance to master transmitter
+  distanceMaster = abs(haversine(currentLat, currentLong, masterLat, masterLong));
+  // Red Dial
+  distanceTransmitter = abs(haversine(currentLat, currentLong, redLat, redLong));
+  Serial.println(distanceMaster);
+  Serial.println(distanceTransmitter);
+  
+  
 }
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
-  Serial.println(haversine(spinnakerLat, spinnakerLong, haslarMarinaLat, haslarMarinaLong));
+  decca();
 }
 
 void loop() {
