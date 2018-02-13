@@ -3,10 +3,10 @@
 /* Frequency Data */
 #define baseFrequency 14046670   // Base Frequency in mHz
 
-/* Comparason Wavelengths */
-#define lambdaMR 889
-#define lambdaMG 1186
-#define lambdaMP 711
+/* Comparason Wavelengths - All lambda/2*/
+#define lambdaMR 445
+#define lambdaMG 593
+#define lambdaMP 355
 
 /* Location Data - decimal lat and long - 1 = 0.71555 */
 #define stepSize 15
@@ -29,7 +29,6 @@
 // Haslar Marina: 50.79098, -1.11754
 #define haslarMarinaLat 5079098
 #define haslarMarinaLong -111754
-
 
 
 int difference( int x, int y) {
@@ -72,9 +71,13 @@ int haversine(float startLat, float startLong, float targetLat, float targetLong
 int decca(void) {
   /*  */
   long distanceMaster = 0;
-  long distanceTransmitter = 0;
-  int phaseMaster = 0;
-  int phaseTransmitter = 0;
+  long distanceRed = 0;
+  long distanceGreen = 0;
+  long distancePurple = 0;
+  float phaseMaster = 0;
+  float phaseRed = 0;
+  float phaseGreen = 0;
+  float phasePurple = 0;
   
   // Location (Place holder values
   long currentLat = 5000000;
@@ -82,21 +85,173 @@ int decca(void) {
 
   // Distance to master transmitter
   distanceMaster = abs(haversine(currentLat, currentLong, masterLat, masterLong));
-  // Red Dial
-  distanceTransmitter = abs(haversine(currentLat, currentLong, redLat, redLong));
-  Serial.println(distanceMaster);
-  Serial.println(distanceTransmitter);
   
+
+  // Red Dial
+  distanceRed = abs(haversine(currentLat, currentLong, redLat, redLong));
+  phaseRed = distanceRed % lambdaMR;
+  phaseMaster = distanceMaster % lambdaMR;
+  // 2*pi approximation -> 355/113
+  phaseRed =  (phaseRed/lambdaMR)*(355/113);
+  phaseMaster = (phaseMaster/lambdaMR)*(355/113);
+  //Phase difference is colour - master, This may need to be changed after testing.
+  
+  
+  // Green Dial
+  distanceGreen = abs(haversine(currentLat, currentLong, greenLat, greenLong));
+  phaseGreen = distanceGreen % lambdaMG;
+  phaseMaster = distanceMaster % lambdaMG;
+
+  // Purple Dial
+  distancePurple = abs(haversine(currentLat, currentLong, purpleLat, purpleLong));
+  phasePurple = distancePurple % lambdaMP;
+  phaseMaster = distanceMaster % lambdaMP;
   
 }
 
 void setup() {
   // put your setup code here, to run once:
-  Serial.begin(9600);
-  decca();
+  
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  /* Main Menu */
+  char state = 'a';
 
+  switch(state){
+    case 'a':
+      // Display GPS Tracker <-- Highlighted
+      // Display Location
+      // Display GPS Input
+      // Display Settings
+      // If down is pressed go to state b
+      // If up is pressed go to state d
+      // If select is pressed to to state e (GPS Tracker)
+
+    case 'b':
+      // Display GPS Tracker 
+      // Display Location <-- Highlighted
+      // Display GPS Input
+      // Display Settings
+      // If down is pressed go to state c
+      // If up is pressed go to state a
+      // If select is pressed to to state Location Menu
+
+    case 'c':
+      // Display GPS Tracker 
+      // Display Location 
+      // Display GPS Input <-- Highlighted
+      // Display Settings
+      // If down is pressed go to state d
+      // If up is pressed go to state b
+      // If select is pressed to to state f (GPS Input)
+
+    case 'd':
+      // Display GPS Tracker 
+      // Display Location
+      // Display GPS Input
+      // Display Settings <-- Highlighted
+      // If down is pressed go to state a
+      // If up is pressed go to state c
+      // If select is pressed to to state Settings
+
+  /* GPS Tracking menu */
+    case 'e':
+      // Display GPS Tracker Splash
+      // Start GPS tracking routine
+
+  /* GPS input Menu */
+    case 'f':
+      // Display Latitude input line and wait for input
+      // If select pressed input is done and move to state g
+      // If back pressed go to state c
+
+    case 'g': 
+      // Display Longitude input line and take input
+      // If select pressed run dial movement routine to input and then move to state f
+      // If back is pressed move to state f
+
+  /* Location Menu */
+    case 'h':
+      // Display Location 1 (Haslar Marina) <-- Highlighted
+      // Display Location 2 (Spinnaker Tower)
+      // Display Location 3 (D-Day position)
+      // Display Loaction 4 (Omaha Beach)
+      // If select pressed run dial routine to Location 1 
+      // If back pressed go to sate b
+      // If up pressed to to state <Fix when #loactions known>
+      // If down pressed go to state i
+
+    case 'i':
+      // Display Location 1 
+      // Display Location 2 <-- Highlighted
+      // Display Location 3
+      // Display Loaction 4
+      // If select pressed run dial routine to Location 2 
+      // If back pressed go to sate b
+      // If up pressed go to state h
+      // If down pressed go to state j
+
+    case 'j':
+      // Display Location 1 
+      // Display Location 2 
+      // Display Location 3 <-- Highlighted
+      // Display Loaction 4
+      // If select pressed run dial routine to Location 3 
+      // If back pressed go to sate b
+      // If up pressed go to state i
+      // If down pressed go to state k
+
+    case 'k':
+      // Display Location 1 
+      // Display Location 2 
+      // Display Location 3 
+      // Display Loaction 4 <-- Highlighted
+      // If select pressed run dial routine to Location 4 
+      // If back pressed go to sate b
+      // If up pressed go to state j
+      // If down pressed go to state l
+
+    case 'l':
+      // Display Location 5 (Slapton Sands) <-- Highlighted
+      // Display Location 6 (Nab Tower)
+      // Display Location 7 (Portland)
+      // Display Loaction 8 (TBD)
+      // If select pressed run dial routine to Location 5 
+      // If back pressed go to sate b
+      // If up pressed to to state k
+      // If down pressed go to state m
+
+    case 'm':
+      // Display Location 5 (Slapton Sands) 
+      // Display Location 6 (Nab Tower) <-- Highlighted
+      // Display Location 7 (Portland)
+      // Display Loaction 8 (TBD)
+      // If select pressed run dial routine to Location 6 
+      // If back pressed go to sate b
+      // If up pressed to to state l
+      // If down pressed go to state n
+
+    case 'n':
+      // Display Location 5 (Slapton Sands) 
+      // Display Location 6 (Nab Tower) 
+      // Display Location 7 (Portland) <-- Highlighted
+      // Display Loaction 8 (TBD)
+      // If select pressed run dial routine to Location 7 
+      // If back pressed go to sate b
+      // If up pressed to to state m
+      // If down pressed go to state o
+
+    case 'o':
+      // Display Location 5 (Slapton Sands) 
+      // Display Location 6 (Nab Tower) 
+      // Display Location 7 (Portland) 
+      // Display Loaction 8 (TBD) <-- Highlighted
+      // If select pressed run dial routine to Location 8 
+      // If back pressed go to sate b
+      // If up pressed to to state n
+      // If down pressed go to state h
+      
+    default:;
+  }
 }
