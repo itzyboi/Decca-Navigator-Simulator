@@ -1,3 +1,4 @@
+#include <Keypad.h>
 #include <math.h> 
 
 /* Frequency Data */
@@ -23,12 +24,46 @@
 /* Constants */
 #define earthRadiusM 6371000
 
-// Spinnaker tower: 50.79556, -1.10848
-#define spinnakerLat 5079556
-#define spinnakerLong -110848
-// Haslar Marina: 50.79098, -1.11754
-#define haslarMarinaLat 5079098
-#define haslarMarinaLong -111754
+/* Locations */
+// Haslar Marina: 50.792517, -1.115500
+#define haslarMarinaLat 5079251
+#define haslarMarinaLong -111550
+// Spinnaker tower: 50.795583, -1.108517
+#define spinnakerLat 5079558
+#define spinnakerLong -110851
+// D-Day Location: 50.083333, -0.778833
+#define DDayLat 5008333
+#define DDayLong -077883
+// Omaha Beach: 49.386467, -0.865167
+#define omahaLat 4938646
+#define omahaLong -086516
+// Slapton Sands: 50.291700, -3.616967
+#define slaptonLat 5029170
+#define slaptonLong -361696
+// Nab Tower: 50.667950, -0.952550
+#define nabLat 5066795
+#define nabLong -095255
+// Portland: 50.570617, -2.440050
+#define portlandLat 5057061
+#define portlandLong -244005
+
+/* I/O */
+char state = 'a';
+char key = 'a';
+// Keypad
+const byte rows = 4; //four rows
+const byte cols = 3; //three columns
+char keys[rows][cols] = {
+  {'1','2','3'},
+  {'4','5','6'},
+  {'7','8','9'},
+  {'*','0','#'}
+};
+byte rowPins[rows] = {11, 6, 7, 9}; //connect to the row pinouts of the keypad
+byte colPins[cols] = {10, 12, 8}; //connect to the column pinouts of the keypad
+Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, rows, cols );
+
+// LCD
 
 
 int difference( int x, int y) {
@@ -111,12 +146,12 @@ int decca(void) {
 
 void setup() {
   // put your setup code here, to run once:
-  
+  Serial.begin(115200);
 }
 
 void loop() {
   /* Main Menu */
-  char state = 'a';
+  key = keypad.getKey();
 
   switch(state){
     case 'a':
@@ -124,52 +159,94 @@ void loop() {
       // Display Location
       // Display GPS Input
       // Display Settings
-      // If down is pressed go to state b
-      // If up is pressed go to state d
-      // If select is pressed to to state e (GPS Tracker)
+      if(key == '8') { // If down is pressed go to state b
+        state = 'b';
+        Serial.println("b: Locations");
+      }
+      else if(key == '2') { // If up is pressed go to state d
+        state = 'd';
+        Serial.println("d: Settings");
+      }
+      else if(key == '#') { // If select is pressed to to state e (GPS Tracker)
+        Serial.println("e: GPS Tracker - Though I didn't actually go there");
+      }
+      break;
 
     case 'b':
       // Display GPS Tracker 
       // Display Location <-- Highlighted
       // Display GPS Input
       // Display Settings
-      // If down is pressed go to state c
-      // If up is pressed go to state a
-      // If select is pressed to to state Location Menu
+      if(key == '8') { // If down is pressed go to state c
+        state = 'c';
+        Serial.println("c: GPS Input");
+      }
+      else if(key == '2') { // If up is pressed go to state a
+        state = 'a';
+        Serial.println("a: GPS Tracker");
+      }
+      else if(key == '#') { // If select is pressed to to state Location Menu
+        state = 'h';
+        Serial.println("h: Location 1");
+      }
+      break;
 
     case 'c':
       // Display GPS Tracker 
       // Display Location 
       // Display GPS Input <-- Highlighted
       // Display Settings
-      // If down is pressed go to state d
-      // If up is pressed go to state b
-      // If select is pressed to to state f (GPS Input)
+      if(key == '8') { // If down is pressed go to state d
+        state = 'd';
+        Serial.println("d: Settings");
+      }
+      else if(key == '2') { // If up is pressed go to state b
+        state = 'b';
+        Serial.println("b: Locations");
+      }
+      else if(key == '#') { // If select is pressed to to state f (GPS Input)
+        //state = 'a';
+        Serial.println("f: GPS Input - Though I didn't actually go there");
+      }
+      break;
 
     case 'd':
       // Display GPS Tracker 
       // Display Location
       // Display GPS Input
       // Display Settings <-- Highlighted
-      // If down is pressed go to state a
-      // If up is pressed go to state c
-      // If select is pressed to to state Settings
+      if(key == '8') { // If down is pressed go to state a
+        state = 'a';
+        Serial.println("a: GPS Tracker");
+      }
+      else if(key == '2') { // If up is pressed go to state c
+        state = 'c';
+        Serial.println("c: GPS Input");
+      }
+      else if(key == '#') { // If select is pressed to to state Settings
+        //state = 'a';
+        Serial.println("DOES NOT EXIST YET - Though I didn't actually go there");
+      }
+      break;
 
   /* GPS Tracking menu */
     case 'e':
       // Display GPS Tracker Splash
       // Start GPS tracking routine
+      break;
 
   /* GPS input Menu */
     case 'f':
       // Display Latitude input line and wait for input
       // If select pressed input is done and move to state g
       // If back pressed go to state c
+      break;
 
     case 'g': 
       // Display Longitude input line and take input
       // If select pressed run dial movement routine to input and then move to state f
       // If back is pressed move to state f
+      break;
 
   /* Location Menu */
     case 'h':
@@ -177,81 +254,188 @@ void loop() {
       // Display Location 2 (Spinnaker Tower)
       // Display Location 3 (D-Day position)
       // Display Loaction 4 (Omaha Beach)
-      // If select pressed run dial routine to Location 1 
-      // If back pressed go to sate b
-      // If up pressed to to state <Fix when #loactions known>
-      // If down pressed go to state i
+      
+      if(key == '8') { // If down pressed go to state i
+        state = 'i';
+        Serial.println("i: Location 2");
+      }
+      else if(key == '2') { // If up pressed to to state o
+        state = 'o';
+        Serial.println("o: Loaction 8");
+      }
+      else if(key == '#') { // If select pressed run dial routine to Location 1 
+        
+        Serial.println("Going to Location 1");
+      }
+      else if(key == '*') { // If back pressed go to sate b
+        state = 'b';
+        Serial.println("b: Locations");
+      }
+      break;
 
     case 'i':
       // Display Location 1 
       // Display Location 2 <-- Highlighted
       // Display Location 3
       // Display Loaction 4
-      // If select pressed run dial routine to Location 2 
-      // If back pressed go to sate b
-      // If up pressed go to state h
-      // If down pressed go to state j
+      if(key == '8') { // If down pressed go to state j
+        state = 'j';
+        Serial.println("j: Location 3");
+      }
+      else if(key == '2') { // If up pressed to to state h
+        state = 'h';
+        Serial.println("h: Loaction 1");
+      }
+      else if(key == '#') { // If select pressed run dial routine to Location 2 
+        
+        Serial.println("Going to Location 2");
+      }
+      else if(key == '*') { // If back pressed go to sate b
+        state = 'b';
+        Serial.println("b: Locations");
+      }
+      break;
 
     case 'j':
       // Display Location 1 
       // Display Location 2 
       // Display Location 3 <-- Highlighted
       // Display Loaction 4
-      // If select pressed run dial routine to Location 3 
-      // If back pressed go to sate b
-      // If up pressed go to state i
-      // If down pressed go to state k
+      if(key == '8') { // If down pressed go to state k
+        state = 'k';
+        Serial.println("k: Location 4");
+      }
+      else if(key == '2') { // If up pressed go to state i
+        state = 'o';
+        Serial.println("i: Loaction 2");
+      }
+      else if(key == '#') { // If select pressed run dial routine to Location 3
+        
+        Serial.println("Going to Location 3");
+      }
+      else if(key == '*') { // If back pressed go to sate b
+        state = 'b';
+        Serial.println("b: Locations");
+      }
+      break;
 
     case 'k':
       // Display Location 1 
       // Display Location 2 
       // Display Location 3 
       // Display Loaction 4 <-- Highlighted
-      // If select pressed run dial routine to Location 4 
-      // If back pressed go to sate b
-      // If up pressed go to state j
-      // If down pressed go to state l
+      if(key == '8') { // If down pressed go to state l
+        state = 'l';
+        Serial.println("l: Location 5");
+      }
+      else if(key == '2') { // If up pressed go to state j
+        state = 'j';
+        Serial.println("j: Loaction 3");
+      }
+      else if(key == '#') { // If select pressed run dial routine to Location 4 
+        
+        Serial.println("Going to Location 4");
+      }
+      else if(key == '*') { // If back pressed go to sate b
+        state = 'b';
+        Serial.println("b: Locations");
+      }
+      break;
 
     case 'l':
       // Display Location 5 (Slapton Sands) <-- Highlighted
       // Display Location 6 (Nab Tower)
       // Display Location 7 (Portland)
       // Display Loaction 8 (TBD)
-      // If select pressed run dial routine to Location 5 
-      // If back pressed go to sate b
-      // If up pressed to to state k
-      // If down pressed go to state m
+      if(key == '8') { // If down pressed go to state m
+        state = 'm';
+        Serial.println("m: Location 6");
+      }
+      else if(key == '2') { // If up pressed to to state k
+        state = 'k';
+        Serial.println("k: Loaction 4");
+      }
+      else if(key == '#') { // If select pressed run dial routine to Location 5 
+        
+        Serial.println("Going to Location 5");
+      }
+      else if(key == '*') { // If back pressed go to sate b
+        state = 'b';
+        Serial.println("b: Locations");
+      }
+      break;
 
     case 'm':
       // Display Location 5 (Slapton Sands) 
       // Display Location 6 (Nab Tower) <-- Highlighted
       // Display Location 7 (Portland)
       // Display Loaction 8 (TBD)
-      // If select pressed run dial routine to Location 6 
-      // If back pressed go to sate b
-      // If up pressed to to state l
-      // If down pressed go to state n
+      if(key == '8') { // If down pressed go to state n
+        state = 'n';
+        Serial.println("n: Location 7");
+      }
+      else if(key == '2') { // If up pressed to to state l
+        state = 'l';
+        Serial.println("l: Loaction 5");
+      }
+      else if(key == '#') { // If select pressed run dial routine to Location 6 
+        
+        Serial.println("Going to Location 6");
+      }
+      else if(key == '*') { // If back pressed go to sate b
+        state = 'b';
+        Serial.println("b: Locations");
+      }
+      break;
 
     case 'n':
       // Display Location 5 (Slapton Sands) 
       // Display Location 6 (Nab Tower) 
       // Display Location 7 (Portland) <-- Highlighted
       // Display Loaction 8 (TBD)
-      // If select pressed run dial routine to Location 7 
-      // If back pressed go to sate b
-      // If up pressed to to state m
-      // If down pressed go to state o
+      if(key == '8') { // If down pressed go to state o
+        state = 'o';
+        Serial.println("o: Location 8");
+      }
+      else if(key == '2') { // If up pressed to to state m
+        state = 'm';
+        Serial.println("m: Loaction 6");
+      }
+      else if(key == '#') { // If select pressed run dial routine to Location 7 
+        
+        Serial.println("Going to Location 7");
+      }
+      else if(key == '*') { // If back pressed go to sate b
+        state = 'b';
+        Serial.println("b: Locations");
+      }
+      break;
 
     case 'o':
       // Display Location 5 (Slapton Sands) 
       // Display Location 6 (Nab Tower) 
       // Display Location 7 (Portland) 
       // Display Loaction 8 (TBD) <-- Highlighted
-      // If select pressed run dial routine to Location 8 
-      // If back pressed go to sate b
-      // If up pressed to to state n
-      // If down pressed go to state h
+      if(key == '8') { // If down pressed go to state h
+        state = 'h';
+        Serial.println("h: Location 1");
+      }
+      else if(key == '2') { // If up pressed to to state n
+        state = 'n';
+        Serial.println("n: Loaction 7");
+      }
+      else if(key == '#') { // If select pressed run dial routine to Location 8 
+        
+        Serial.println("Going to Location 8");
+      }
+      else if(key == '*') { // If back pressed go to sate b
+        state = 'b';
+        Serial.println("b: Locations");
+      }
+      break;
       
-    default:;
+    default:
+      break;
   }
+  
 }
