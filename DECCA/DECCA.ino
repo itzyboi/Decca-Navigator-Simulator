@@ -1,3 +1,5 @@
+#include <Wire.h>
+#include <Adafruit_LiquidCrystal.h>
 #include <Keypad.h>
 #include <math.h> 
 
@@ -64,7 +66,8 @@ byte colPins[cols] = {10, 12, 8}; //connect to the column pinouts of the keypad
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, rows, cols );
 
 // LCD
-
+Adafruit_LiquidCrystal lcd(0);
+boolean menuTracker = 0;
 
 int difference( int x, int y) {
   /* Returns the difference between two integers */
@@ -147,6 +150,8 @@ int decca(void) {
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
+  lcd.begin(20,4);
+  
 }
 
 void loop() {
@@ -155,72 +160,134 @@ void loop() {
 
   switch(state){
     case 'a':
-      // Display GPS Tracker <-- Highlighted
-      // Display Location
-      // Display GPS Input
-      // Display Settings
+      if(menuTracker == 0) {
+        lcd.clear();
+        // Display GPS Tracker <-- Highlighted
+        lcd.setCursor(0,0);
+        lcd.print(" GPS Tracker");
+        // Display Location
+        lcd.setCursor(0,1);
+        lcd.print("Locations");
+        // Display GPS Input
+        lcd.setCursor(0,2);
+        lcd.print("GPS Input");
+        // Display Settings
+        lcd.setCursor(0,3);
+        lcd.print("Settings");
+        menuTracker = 1;
+      }
+      
       if(key == '8') { // If down is pressed go to state b
         state = 'b';
+        menuTracker = 0;
         Serial.println("b: Locations");
       }
       else if(key == '2') { // If up is pressed go to state d
         state = 'd';
+        menuTracker = 0;
         Serial.println("d: Settings");
       }
       else if(key == '#') { // If select is pressed to to state e (GPS Tracker)
         Serial.println("e: GPS Tracker - Though I didn't actually go there");
+        menuTracker = 0;
       }
       break;
 
     case 'b':
-      // Display GPS Tracker 
-      // Display Location <-- Highlighted
-      // Display GPS Input
-      // Display Settings
+      if(menuTracker == 0) {
+        lcd.clear();
+        // Display GPS Tracker
+        lcd.setCursor(0,0);
+        lcd.print("GPS Tracker");
+        // Display Location <-- Highlighted
+        lcd.setCursor(0,1);
+        lcd.print(" Locations");
+        // Display GPS Input
+        lcd.setCursor(0,2);
+        lcd.print("GPS Input");
+        // Display Settings
+        lcd.setCursor(0,3);
+        lcd.print("Settings");
+        menuTracker = 1;
+      }
+      
       if(key == '8') { // If down is pressed go to state c
         state = 'c';
+        menuTracker = 0;
         Serial.println("c: GPS Input");
       }
       else if(key == '2') { // If up is pressed go to state a
         state = 'a';
+        menuTracker = 0;
         Serial.println("a: GPS Tracker");
       }
       else if(key == '#') { // If select is pressed to to state Location Menu
         state = 'h';
+        menuTracker = 0;
         Serial.println("h: Location 1");
       }
       break;
 
     case 'c':
-      // Display GPS Tracker 
-      // Display Location 
-      // Display GPS Input <-- Highlighted
-      // Display Settings
+      if(menuTracker == 0) {
+        lcd.clear();
+        // Display GPS Tracker 
+        lcd.setCursor(0,0);
+        lcd.print("GPS Tracker");
+        // Display Location
+        lcd.setCursor(0,1);
+        lcd.print("Locations");
+        // Display GPS Input <-- Highlighted
+        lcd.setCursor(0,2);
+        lcd.print(" GPS Input");
+        // Display Settings
+        lcd.setCursor(0,3);
+        lcd.print("Settings");
+        menuTracker = 1;
+      }
+      
       if(key == '8') { // If down is pressed go to state d
         state = 'd';
+        menuTracker = 0;
         Serial.println("d: Settings");
       }
       else if(key == '2') { // If up is pressed go to state b
         state = 'b';
+        menuTracker = 0;
         Serial.println("b: Locations");
       }
       else if(key == '#') { // If select is pressed to to state f (GPS Input)
         //state = 'a';
+        menuTracker = 0;
         Serial.println("f: GPS Input - Though I didn't actually go there");
       }
       break;
 
     case 'd':
-      // Display GPS Tracker 
-      // Display Location
-      // Display GPS Input
-      // Display Settings <-- Highlighted
+      if(menuTracker == 0) {
+        lcd.clear();
+        // Display GPS Tracker 
+        lcd.setCursor(0,0);
+        lcd.print("GPS Tracker");
+        // Display Location
+        lcd.setCursor(0,1);
+        lcd.print("Locations");
+        // Display GPS Input 
+        lcd.setCursor(0,2);
+        lcd.print("GPS Input");
+        // Display Settings <-- Highlighted
+        lcd.setCursor(0,3);
+        lcd.print(" Settings");
+        menuTracker = 1;
+      }
       if(key == '8') { // If down is pressed go to state a
         state = 'a';
+        menuTracker = 0;
         Serial.println("a: GPS Tracker");
       }
       else if(key == '2') { // If up is pressed go to state c
         state = 'c';
+        menuTracker = 0;
         Serial.println("c: GPS Input");
       }
       else if(key == '#') { // If select is pressed to to state Settings
@@ -250,63 +317,109 @@ void loop() {
 
   /* Location Menu */
     case 'h':
-      // Display Location 1 (Haslar Marina) <-- Highlighted
-      // Display Location 2 (Spinnaker Tower)
-      // Display Location 3 (D-Day position)
-      // Display Loaction 4 (Omaha Beach)
-      
+      if(menuTracker == 0) {
+        lcd.clear();
+        // Display Location 1 (Haslar Marina) <-- Highlighted 
+        lcd.setCursor(0,0);
+        lcd.print(" Haslar Marina");
+        // Display Location 2 (Spinnaker Tower)
+        lcd.setCursor(0,1);
+        lcd.print("Spinnaker Tower");
+        // Display Location 3 (D-Day position)
+        lcd.setCursor(0,2);
+        lcd.print("D-Day position");
+        // Display Loaction 4 (Omaha Beach)
+        lcd.setCursor(0,3);
+        lcd.print("Omaha Beach");
+        menuTracker = 1;
+      }
+
       if(key == '8') { // If down pressed go to state i
         state = 'i';
+        menuTracker = 0;
         Serial.println("i: Location 2");
       }
       else if(key == '2') { // If up pressed to to state o
         state = 'o';
+        menuTracker = 0;
         Serial.println("o: Loaction 8");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 1 
-        
+
         Serial.println("Going to Location 1");
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
+        menuTracker = 0;
         Serial.println("b: Locations");
       }
       break;
 
     case 'i':
-      // Display Location 1 
-      // Display Location 2 <-- Highlighted
-      // Display Location 3
-      // Display Loaction 4
+      if(menuTracker == 0) {
+        lcd.clear();
+        // Display Location 1 (Haslar Marina) 
+        lcd.setCursor(0,0);
+        lcd.print("Haslar Marina");
+        // Display Location 2 (Spinnaker Tower) <-- Highlighted 
+        lcd.setCursor(0,1);
+        lcd.print(" Spinnaker Tower");
+        // Display Location 3 (D-Day position)
+        lcd.setCursor(0,2);
+        lcd.print("D-Day position");
+        // Display Loaction 4 (Omaha Beach)
+        lcd.setCursor(0,3);
+        lcd.print("Omaha Beach");
+        menuTracker = 1;
+      }
+      
       if(key == '8') { // If down pressed go to state j
         state = 'j';
+        menuTracker = 0;
         Serial.println("j: Location 3");
       }
       else if(key == '2') { // If up pressed to to state h
         state = 'h';
+        menuTracker = 0;
         Serial.println("h: Loaction 1");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 2 
-        
+
         Serial.println("Going to Location 2");
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
+        menuTracker = 0;
         Serial.println("b: Locations");
       }
       break;
 
     case 'j':
-      // Display Location 1 
-      // Display Location 2 
-      // Display Location 3 <-- Highlighted
-      // Display Loaction 4
+      if(menuTracker == 0) {
+        lcd.clear();
+        // Display Location 1 (Haslar Marina) 
+        lcd.setCursor(0,0);
+        lcd.print("Haslar Marina");
+        // Display Location 2 (Spinnaker Tower) 
+        lcd.setCursor(0,1);
+        lcd.print("Spinnaker Tower");
+        // Display Location 3 (D-Day position) <-- Highlighted 
+        lcd.setCursor(0,2);
+        lcd.print(" D-Day position");
+        // Display Loaction 4 (Omaha Beach)
+        lcd.setCursor(0,3);
+        lcd.print("Omaha Beach");
+        menuTracker = 1;
+      }
+      
       if(key == '8') { // If down pressed go to state k
         state = 'k';
+        menuTracker = 0;
         Serial.println("k: Location 4");
       }
       else if(key == '2') { // If up pressed go to state i
-        state = 'o';
+        state = 'i';
+        menuTracker = 0;
         Serial.println("i: Loaction 2");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 3
@@ -315,21 +428,37 @@ void loop() {
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
+        menuTracker = 0;
         Serial.println("b: Locations");
       }
       break;
 
     case 'k':
-      // Display Location 1 
-      // Display Location 2 
-      // Display Location 3 
-      // Display Loaction 4 <-- Highlighted
+      if(menuTracker == 0) {
+        lcd.clear();
+        // Display Location 1 (Haslar Marina) 
+        lcd.setCursor(0,0);
+        lcd.print("Haslar Marina");
+        // Display Location 2 (Spinnaker Tower) 
+        lcd.setCursor(0,1);
+        lcd.print("Spinnaker Tower");
+        // Display Location 3 (D-Day position)
+        lcd.setCursor(0,2);
+        lcd.print("D-Day position");
+        // Display Loaction 4 (Omaha Beach) <-- Highlighted 
+        lcd.setCursor(0,3);
+        lcd.print(" Omaha Beach");
+        menuTracker = 1;
+      }
+      
       if(key == '8') { // If down pressed go to state l
         state = 'l';
+        menuTracker = 0;
         Serial.println("l: Location 5");
       }
       else if(key == '2') { // If up pressed go to state j
         state = 'j';
+        menuTracker = 0;
         Serial.println("j: Loaction 3");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 4 
@@ -338,21 +467,37 @@ void loop() {
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
+        menuTracker = 0;
         Serial.println("b: Locations");
       }
       break;
 
     case 'l':
-      // Display Location 5 (Slapton Sands) <-- Highlighted
-      // Display Location 6 (Nab Tower)
-      // Display Location 7 (Portland)
-      // Display Loaction 8 (TBD)
+      if(menuTracker == 0) {
+        lcd.clear();
+        // Display Location 5 (Slapton Sands) <-- Highlighted 
+        lcd.setCursor(0,0);
+        lcd.print(" Slapton Sands");
+        // Display Location 6 (Nab Tower) 
+        lcd.setCursor(0,1);
+        lcd.print("Nab Tower");
+        // Display Location 7 (Portland)
+        lcd.setCursor(0,2);
+        lcd.print("Portland");
+        // Display Loaction 8 (TBD)
+        lcd.setCursor(0,3);
+        lcd.print("TBD");
+        menuTracker = 1;
+      }
+      
       if(key == '8') { // If down pressed go to state m
         state = 'm';
+        menuTracker = 0;
         Serial.println("m: Location 6");
       }
       else if(key == '2') { // If up pressed to to state k
         state = 'k';
+        menuTracker = 0;
         Serial.println("k: Loaction 4");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 5 
@@ -361,21 +506,37 @@ void loop() {
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
+        menuTracker = 0;
         Serial.println("b: Locations");
       }
       break;
 
     case 'm':
-      // Display Location 5 (Slapton Sands) 
-      // Display Location 6 (Nab Tower) <-- Highlighted
-      // Display Location 7 (Portland)
-      // Display Loaction 8 (TBD)
+      if(menuTracker == 0) {
+        lcd.clear();
+        // Display Location 5 (Slapton Sands)  
+        lcd.setCursor(0,0);
+        lcd.print("Slapton Sands");
+        // Display Location 6 (Nab Tower) <-- Highlighted
+        lcd.setCursor(0,1);
+        lcd.print(" Nab Tower");
+        // Display Location 7 (Portland)
+        lcd.setCursor(0,2);
+        lcd.print("Portland");
+        // Display Loaction 8 (TBD)
+        lcd.setCursor(0,3);
+        lcd.print("TBD");
+        menuTracker = 1;
+      }
+      
       if(key == '8') { // If down pressed go to state n
         state = 'n';
+        menuTracker = 0;
         Serial.println("n: Location 7");
       }
       else if(key == '2') { // If up pressed to to state l
         state = 'l';
+        menuTracker = 0;
         Serial.println("l: Loaction 5");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 6 
@@ -384,21 +545,37 @@ void loop() {
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
+        menuTracker = 0;
         Serial.println("b: Locations");
       }
       break;
 
     case 'n':
-      // Display Location 5 (Slapton Sands) 
-      // Display Location 6 (Nab Tower) 
-      // Display Location 7 (Portland) <-- Highlighted
-      // Display Loaction 8 (TBD)
+      if(menuTracker == 0) {
+        lcd.clear();
+        // Display Location 5 (Slapton Sands)  
+        lcd.setCursor(0,0);
+        lcd.print("Slapton Sands");
+        // Display Location 6 (Nab Tower) 
+        lcd.setCursor(0,1);
+        lcd.print("Nab Tower");
+        // Display Location 7 (Portland) <-- Highlighted
+        lcd.setCursor(0,2);
+        lcd.print(" Portland");
+        // Display Loaction 8 (TBD)
+        lcd.setCursor(0,3);
+        lcd.print("TBD");
+        menuTracker = 1;
+      }
+      
       if(key == '8') { // If down pressed go to state o
         state = 'o';
+        menuTracker = 0;
         Serial.println("o: Location 8");
       }
       else if(key == '2') { // If up pressed to to state m
         state = 'm';
+        menuTracker = 0;
         Serial.println("m: Loaction 6");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 7 
@@ -407,21 +584,37 @@ void loop() {
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
+        menuTracker = 0;
         Serial.println("b: Locations");
       }
       break;
 
     case 'o':
-      // Display Location 5 (Slapton Sands) 
-      // Display Location 6 (Nab Tower) 
-      // Display Location 7 (Portland) 
-      // Display Loaction 8 (TBD) <-- Highlighted
+      if(menuTracker == 0) {
+        lcd.clear();
+        // Display Location 5 (Slapton Sands)  
+        lcd.setCursor(0,0);
+        lcd.print("Slapton Sands");
+        // Display Location 6 (Nab Tower) 
+        lcd.setCursor(0,1);
+        lcd.print("Nab Tower");
+        // Display Location 7 (Portland) 
+        lcd.setCursor(0,2);
+        lcd.print("Portland");
+        // Display Loaction 8 (TBD) <-- Highlighted
+        lcd.setCursor(0,3);
+        lcd.print(" TBD");
+        menuTracker = 1;
+      }
+      
       if(key == '8') { // If down pressed go to state h
         state = 'h';
+        menuTracker = 0;
         Serial.println("h: Location 1");
       }
       else if(key == '2') { // If up pressed to to state n
         state = 'n';
+        menuTracker = 0;
         Serial.println("n: Loaction 7");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 8 
@@ -430,6 +623,7 @@ void loop() {
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
+        menuTracker = 0;
         Serial.println("b: Locations");
       }
       break;
