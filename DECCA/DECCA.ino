@@ -12,7 +12,7 @@
 #define lambdaMP 355
 
 /* Location Data - decimal lat and long - 1 = 0.71555 */
-#define stepSize 15
+#define stepSize 50
 
 #define masterLat 5023300
 #define masterLong -383300
@@ -49,6 +49,10 @@
 #define portlandLat 5057061
 #define portlandLong -244005
 
+/* Globals */
+long currentLat = 0;
+long currentLong = 0;
+
 /* I/O */
 char state = 'a';
 char key = 'a';
@@ -69,21 +73,21 @@ Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, rows, cols );
 Adafruit_LiquidCrystal lcd(0);
 boolean menuTracker = 0;
 
-int difference( int x, int y) {
-  /* Returns the difference between two integers */
-  return x - y;
-}
 
-int stepNumber(int start, int target) {
+
+int stepNumber(long startLat, long startLong, long targetLat, long targetLong) {
   /* Calculates the number of steps needed to move from start to target at step size */
-  int distance = difference(start, target);
-  return abs(distance / stepSize);
+  int x = abs((startLat - targetLat)/stepSize);
+  int y = abs((startLong - targetLong)/stepSize);
+  if(x > y){
+    return x;
+  }
+  else return y;
 }
 
-int stepDistance(int start, int target, int steps) {
+int stepDistance(long start, long target, int steps) {
   /* Takes distance and number of steps calculates a suitable step size to travel along */  
-  int distance = difference(start,target);
-  return distance/steps;
+  return (start - target)/steps;
 }
 
 float toRadians(float x) {
@@ -106,7 +110,7 @@ int haversine(float startLat, float startLong, float targetLat, float targetLong
   return earthRadiusM * c;
 }
 
-int decca(void) {
+int dialDrive(long targetLat, long targetLong) {
   /*  */
   long distanceMaster = 0;
   long distanceRed = 0;
@@ -116,35 +120,55 @@ int decca(void) {
   float phaseRed = 0;
   float phaseGreen = 0;
   float phasePurple = 0;
-  
-  // Location (Place holder values
-  long currentLat = 5000000;
-  long currentLong = 300000;
 
   // Distance to master transmitter
-  distanceMaster = abs(haversine(currentLat, currentLong, masterLat, masterLong));
+  distanceMaster = abs(haversine(targetLat, targetLong, masterLat, masterLong));
   
 
   // Red Dial
-  distanceRed = abs(haversine(currentLat, currentLong, redLat, redLong));
+  distanceRed = abs(haversine(targetLat, targetLong, redLat, redLong));
   phaseRed = distanceRed % lambdaMR;
   phaseMaster = distanceMaster % lambdaMR;
-  // 2*pi approximation -> 355/113
-  phaseRed =  (phaseRed/lambdaMR)*(355/113);
-  phaseMaster = (phaseMaster/lambdaMR)*(355/113);
-  //Phase difference is colour - master, This may need to be changed after testing.
   
   
   // Green Dial
-  distanceGreen = abs(haversine(currentLat, currentLong, greenLat, greenLong));
+  distanceGreen = abs(haversine(targetLat, targetLong, greenLat, greenLong));
   phaseGreen = distanceGreen % lambdaMG;
   phaseMaster = distanceMaster % lambdaMG;
 
   // Purple Dial
-  distancePurple = abs(haversine(currentLat, currentLong, purpleLat, purpleLong));
+  distancePurple = abs(haversine(targetLat, targetLong, purpleLat, purpleLong));
   phasePurple = distancePurple % lambdaMP;
   phaseMaster = distanceMaster % lambdaMP;
+
+  /* THE FOLLOWING IS TEST CODE - NOT GAURENTEED TO GIVE CORRECT POSITIONS*/ 
+  // 2*pi approximation -> 355/113
+  phasePurple =  (phasePurple/lambdaMP)*(355/113);
+  phaseMaster = (phaseMaster/lambdaMP)*(355/113);
+  //Phase difference is colour + master, This may need to be changed after testing.
+  phasePurple += phaseMaster;
   
+  pinMode(3, OUTPUT);
+  pinMode(4, OUTPUT);
+  // map(value, fromLow, fromHigh, toLow, toHigh)
+  analogWrite(3,map(sin(phasePurple),-1,0,1,255));
+  analogWrite(4,map(cos(phasePurple),-1,0,1,255));
+  /* TEST CODE END */
+}
+
+boolean decca(long targetLat, long targetLong) {
+  int steps = stepNumber(currentLat, targetLat, currentLong, targetLong);
+  int distanceLat = stepDistance(currentLat, targetLat, steps);
+  int distanceLong = stepDistance(currentLong, targetLong, steps);
+
+  for(int x = 0; x < steps; x++) {
+    currentLat += distanceLat;
+    currentLong += distanceLong;
+    dialDrive(currentLat, currentLong);
+  }
+  currentLat = targetLat;
+  currentLong = targetLong;
+  dialDrive(currentLat, currentLong);
 }
 
 void setup() {
