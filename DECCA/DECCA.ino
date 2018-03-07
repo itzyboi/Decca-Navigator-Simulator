@@ -1,3 +1,4 @@
+#include <Adafruit_PWMServoDriver.h>
 #include <Wire.h>
 #include <Adafruit_LiquidCrystal.h>
 #include <Keypad.h>
@@ -7,12 +8,12 @@
 #define baseFrequency 14046670   // Base Frequency in mHz
 
 /* Comparason Wavelengths - All lambda/2*/
-#define lambdaMR 445
-#define lambdaMG 593
-#define lambdaMP 355
+const unsigned int lambdaMR = 890;
+const unsigned int lambdaMG = 1186;
+const unsigned int lambdaMP = 711;
 
 /* Location Data - decimal lat and long - 1 = 0.71555 */
-#define stepSize 50
+#define stepSize 10
 
 #define masterLat 5023300
 #define masterLong -383300
@@ -35,23 +36,23 @@
 #define spinnakerLong -110851
 // D-Day Location: 50.083333, -0.778833
 #define DDayLat 5008333
-#define DDayLong -077883
+#define DDayLong -77883
 // Omaha Beach: 49.386467, -0.865167
 #define omahaLat 4938646
-#define omahaLong -086516
+#define omahaLong -86516
 // Slapton Sands: 50.291700, -3.616967
 #define slaptonLat 5029170
 #define slaptonLong -361696
 // Nab Tower: 50.667950, -0.952550
 #define nabLat 5066795
-#define nabLong -095255
+#define nabLong -95255
 // Portland: 50.570617, -2.440050
 #define portlandLat 5057061
 #define portlandLong -244005
 
 /* Globals */
-long currentLat = 0;
-long currentLong = 0;
+float currentLat = 5079251;
+float currentLong = -111550;
 
 /* I/O */
 char state = 'a';
@@ -71,23 +72,41 @@ Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, rows, cols );
 
 // LCD
 Adafruit_LiquidCrystal lcd(0);
+
 boolean menuTracker = 0;
 
+// PWM Driver
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+#define PWMFreq 500
+// Pins
+#define redSin 0
+#define redCos 0
+#define greenSin 0
+#define greenCos 0
+#define purpleSin 14
+#define purpleCos 15
+#define PWMEnable A3
 
 
-int stepNumber(long startLat, long startLong, long targetLat, long targetLong) {
+long stepNumber(long startLat, long startLong, long targetLat, long targetLong) {
   /* Calculates the number of steps needed to move from start to target at step size */
-  int x = abs((startLat - targetLat)/stepSize);
-  int y = abs((startLong - targetLong)/stepSize);
+  long x = abs((startLat - targetLat)/stepSize);
+  long y = abs((startLong - targetLong)/stepSize);
+
+  Serial.print("x: ");
+  Serial.println(x);
+  Serial.print("y: ");
+  Serial.println(y);
+  
   if(x > y){
     return x;
   }
   else return y;
 }
 
-int stepDistance(long start, long target, int steps) {
+float stepDistance(long start, long target, long steps) {
   /* Takes distance and number of steps calculates a suitable step size to travel along */  
-  return (start - target)/steps;
+  return (float)(target - start)/steps;
 }
 
 float toRadians(float x) {
@@ -95,7 +114,7 @@ float toRadians(float x) {
   return (x*71)/4068;
 }
 
-int haversine(float startLat, float startLong, float targetLat, float targetLong) {
+long haversine(float startLat, float startLong, float targetLat, float targetLong) {
   /* Calculates the distance over the earths surface to get from start to target */
   float startLatRad = toRadians(startLat /= 100000);
   float startLongRad = toRadians(startLong /= 100000);
@@ -110,7 +129,7 @@ int haversine(float startLat, float startLong, float targetLat, float targetLong
   return earthRadiusM * c;
 }
 
-int dialDrive(long targetLat, long targetLong) {
+boolean dialDrive(long targetLat, long targetLong) {
   /*  */
   long distanceMaster = 0;
   long distanceRed = 0;
@@ -127,55 +146,72 @@ int dialDrive(long targetLat, long targetLong) {
 
   // Red Dial
   distanceRed = abs(haversine(targetLat, targetLong, redLat, redLong));
-  phaseRed = distanceRed % lambdaMR;
-  phaseMaster = distanceMaster % lambdaMR;
+  phaseRed = distanceRed - distanceMaster;
+  phaseRed = (710*phaseRed)/(113*lambdaMR);
+  pwm.setPin(redSin,(2047*sin(phaseRed) + 2048));
+  pwm.setPin(redCos,(2047*cos(phaseRed) + 2048));
   
   
   // Green Dial
   distanceGreen = abs(haversine(targetLat, targetLong, greenLat, greenLong));
-  phaseGreen = distanceGreen % lambdaMG;
-  phaseMaster = distanceMaster % lambdaMG;
-
+  phaseGreen = distanceGreen - distanceMaster;
+  phaseGreen = (710*phaseGreen)/(113*lambdaMG);
+  pwm.setPin(greenSin,(2047*sin(phaseGreen) + 2048));
+  pwm.setPin(greenCos,(2047*cos(phaseGreen) + 2048));
   // Purple Dial
   distancePurple = abs(haversine(targetLat, targetLong, purpleLat, purpleLong));
-  phasePurple = distancePurple % lambdaMP;
-  phaseMaster = distanceMaster % lambdaMP;
+    // 2*pi approximation -> 710/113
+  phasePurple = distancePurple - distanceMaster;
+  phasePurple = (710*phasePurple)/(113*lambdaMP);
+  pwm.setPin(purpleSin,(2047*sin(phasePurple) + 2048));
+  pwm.setPin(purpleCos,(2047*cos(phasePurple) + 2048));
 
-  /* THE FOLLOWING IS TEST CODE - NOT GAURENTEED TO GIVE CORRECT POSITIONS*/ 
-  // 2*pi approximation -> 355/113
-  phasePurple =  (phasePurple/lambdaMP)*(355/113);
-  phaseMaster = (phaseMaster/lambdaMP)*(355/113);
-  //Phase difference is colour + master, This may need to be changed after testing.
-  phasePurple += phaseMaster;
-  
-  pinMode(3, OUTPUT);
-  pinMode(4, OUTPUT);
-  // map(value, fromLow, fromHigh, toLow, toHigh)
-  analogWrite(3,map(sin(phasePurple),-1,0,1,255));
-  analogWrite(4,map(cos(phasePurple),-1,0,1,255));
-  /* TEST CODE END */
+  return 1;
 }
 
 boolean decca(long targetLat, long targetLong) {
-  int steps = stepNumber(currentLat, targetLat, currentLong, targetLong);
-  int distanceLat = stepDistance(currentLat, targetLat, steps);
-  int distanceLong = stepDistance(currentLong, targetLong, steps);
+  long steps = stepNumber(currentLat, currentLong, targetLat, targetLong);
+  float distanceLat = stepDistance(currentLat, targetLat, steps);
+  float distanceLong = stepDistance(currentLong, targetLong, steps);
+
+  Serial.print("Steps: ");
+  Serial.println(steps);
+  Serial.print("Lat: ");
+  Serial.println(distanceLat, 5);
+  Serial.print("Long: ");
+  Serial.println(distanceLong, 5);
 
   for(int x = 0; x < steps; x++) {
     currentLat += distanceLat;
     currentLong += distanceLong;
     dialDrive(currentLat, currentLong);
+    delay(1);
+    Serial.print(x);
+    Serial.print("/");
+    Serial.println(steps - 1);
   }
   currentLat = targetLat;
   currentLong = targetLong;
   dialDrive(currentLat, currentLong);
+  Serial.print("Final Lat: ");
+  Serial.println(currentLat);
+  Serial.print("Final Long: ");
+  Serial.println(currentLong);
+  return 1;
 }
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
   lcd.begin(20,4);
-  
+  pwm.begin();
+  pwm.setPWMFreq(PWMFreq);
+  pinMode(PWMEnable, OUTPUT);
+  digitalWrite(PWMEnable, LOW);
+  Serial.print("Start Lat: ");
+  Serial.println(currentLat);
+  Serial.print("Start Long: ");
+  Serial.println(currentLong);
 }
 
 void loop() {
@@ -369,8 +405,14 @@ void loop() {
         Serial.println("o: Loaction 8");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 1 
-
         Serial.println("Going to Location 1");
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Moving to");
+        lcd.setCursor(0,1);
+        lcd.print("Haslar Marina");
+        decca(haslarMarinaLat, haslarMarinaLong);
+        menuTracker = 0;
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
@@ -408,8 +450,14 @@ void loop() {
         Serial.println("h: Loaction 1");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 2 
-
-        Serial.println("Going to Location 2");
+        Serial.println("Going to Spinnaker Tower");
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Moving to");
+        lcd.setCursor(0,1);
+        lcd.print("Spinnaker Tower");
+        decca(spinnakerLat, spinnakerLong);
+        menuTracker = 0;
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
@@ -447,8 +495,14 @@ void loop() {
         Serial.println("i: Loaction 2");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 3
-        
         Serial.println("Going to Location 3");
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Moving to");
+        lcd.setCursor(0,1);
+        lcd.print("D-Day Position");
+        decca(DDayLat, DDayLong);
+        menuTracker = 0;
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
@@ -486,8 +540,14 @@ void loop() {
         Serial.println("j: Loaction 3");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 4 
-        
         Serial.println("Going to Location 4");
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Moving to");
+        lcd.setCursor(0,1);
+        lcd.print("Omaha Beach");
+        decca(omahaLat, omahaLong);
+        menuTracker = 0;
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
@@ -525,8 +585,14 @@ void loop() {
         Serial.println("k: Loaction 4");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 5 
-        
-        Serial.println("Going to Location 5");
+        Serial.println("Going to Slapton Sands");
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Moving to");
+        lcd.setCursor(0,1);
+        lcd.print("Slapton Sands");
+        decca(slaptonLat, slaptonLong);
+        menuTracker = 0;
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
@@ -564,8 +630,14 @@ void loop() {
         Serial.println("l: Loaction 5");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 6 
-        
         Serial.println("Going to Location 6");
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Moving to");
+        lcd.setCursor(0,1);
+        lcd.print("Nab Tower");
+        decca(nabLat, nabLong);
+        menuTracker = 0;
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
@@ -603,8 +675,14 @@ void loop() {
         Serial.println("m: Loaction 6");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 7 
-        
-        Serial.println("Going to Location 7");
+        Serial.println("Going to Portland");
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Moving to");
+        lcd.setCursor(0,1);
+        lcd.print("Portland");
+        decca(portlandLat, portlandLong);
+        menuTracker = 0;
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
@@ -642,7 +720,6 @@ void loop() {
         Serial.println("n: Loaction 7");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 8 
-        
         Serial.println("Going to Location 8");
       }
       else if(key == '*') { // If back pressed go to sate b
