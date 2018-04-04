@@ -1,3 +1,4 @@
+#include <Adafruit_GPS.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <Wire.h>
 #include <Adafruit_LiquidCrystal.h>
@@ -74,6 +75,9 @@ Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, rows, cols );
 Adafruit_LiquidCrystal lcd(0);
 
 boolean menuTracker = 0;
+long GPSInputLat = 0;
+long GPSInputLong = 0;
+byte counter = 0;
 
 // PWM Driver
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
@@ -93,11 +97,6 @@ long stepNumber(long startLat, long startLong, long targetLat, long targetLong) 
   long x = abs((startLat - targetLat)/stepSize);
   long y = abs((startLong - targetLong)/stepSize);
 
-  Serial.print("x: ");
-  Serial.println(x);
-  Serial.print("y: ");
-  Serial.println(y);
-  
   if(x > y){
     return x;
   }
@@ -130,7 +129,8 @@ long haversine(float startLat, float startLong, float targetLat, float targetLon
 }
 
 boolean dialDrive(long targetLat, long targetLong) {
-  /*  */
+  /* Calculates and then drive dials to the input position */
+    // 2*pi approximation -> 710/113
   long distanceMaster = 0;
   long distanceRed = 0;
   long distanceGreen = 0;
@@ -142,7 +142,7 @@ boolean dialDrive(long targetLat, long targetLong) {
 
   // Distance to master transmitter
   distanceMaster = abs(haversine(targetLat, targetLong, masterLat, masterLong));
-  
+
 
   // Red Dial
   distanceRed = abs(haversine(targetLat, targetLong, redLat, redLong));
@@ -151,16 +151,15 @@ boolean dialDrive(long targetLat, long targetLong) {
   pwm.setPin(redSin,(2047*sin(phaseRed) + 2048));
   pwm.setPin(redCos,(2047*cos(phaseRed) + 2048));
   
-  
   // Green Dial
   distanceGreen = abs(haversine(targetLat, targetLong, greenLat, greenLong));
   phaseGreen = distanceGreen - distanceMaster;
   phaseGreen = (710*phaseGreen)/(113*lambdaMG);
   pwm.setPin(greenSin,(2047*sin(phaseGreen) + 2048));
   pwm.setPin(greenCos,(2047*cos(phaseGreen) + 2048));
+  
   // Purple Dial
   distancePurple = abs(haversine(targetLat, targetLong, purpleLat, purpleLong));
-    // 2*pi approximation -> 710/113
   phasePurple = distancePurple - distanceMaster;
   phasePurple = (710*phasePurple)/(113*lambdaMP);
   pwm.setPin(purpleSin,(2047*sin(phasePurple) + 2048));
@@ -174,18 +173,12 @@ boolean decca(long targetLat, long targetLong) {
   float distanceLat = stepDistance(currentLat, targetLat, steps);
   float distanceLong = stepDistance(currentLong, targetLong, steps);
 
-  Serial.print("Steps: ");
-  Serial.println(steps);
-  Serial.print("Lat: ");
-  Serial.println(distanceLat, 5);
-  Serial.print("Long: ");
-  Serial.println(distanceLong, 5);
-
   for(int x = 0; x < steps; x++) {
     currentLat += distanceLat;
     currentLong += distanceLong;
     dialDrive(currentLat, currentLong);
     delay(1);
+    
     Serial.print(x);
     Serial.print("/");
     Serial.println(steps - 1);
@@ -208,6 +201,7 @@ void setup() {
   pwm.setPWMFreq(PWMFreq);
   pinMode(PWMEnable, OUTPUT);
   digitalWrite(PWMEnable, LOW);
+  
   Serial.print("Start Lat: ");
   Serial.println(currentLat);
   Serial.print("Start Long: ");
@@ -248,7 +242,8 @@ void loop() {
         Serial.println("d: Settings");
       }
       else if(key == '#') { // If select is pressed to to state e (GPS Tracker)
-        Serial.println("e: GPS Tracker - Though I didn't actually go there");
+        state = 'e';
+        Serial.println("e: GPS Tracker");
         menuTracker = 0;
       }
       break;
@@ -317,7 +312,7 @@ void loop() {
         Serial.println("b: Locations");
       }
       else if(key == '#') { // If select is pressed to to state f (GPS Input)
-        //state = 'a';
+        state = 'f';
         menuTracker = 0;
         Serial.println("f: GPS Input - Though I didn't actually go there");
       }
@@ -360,19 +355,99 @@ void loop() {
     case 'e':
       // Display GPS Tracker Splash
       // Start GPS tracking routine
+      if(!menuTracker) {
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("GPS Tracking Mode");
+        lcd.setCursor(0,3);
+        lcd.print("Exit: Back(*)");
+        menuTracker = 1;
+      }
+      //Find GPS Location
+      //Drive Dial
+      if(key == '*') {
+        state = 'a';
+        menuTracker = 0;
+      }
       break;
 
   /* GPS input Menu */
     case 'f':
-      // Display Latitude input line and wait for input
+      // Display Latitude input line and take input
       // If select pressed input is done and move to state g
       // If back pressed go to state c
+      if(!menuTracker) {
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("GPS Input Mode");
+        lcd.setCursor(0,1);
+        lcd.print("Enter Latitude 5D.P");
+        lcd.setCursor(0,3);
+        lcd.print("Exit: Back(*)");
+        lcd.setCursor(0,2);
+        menuTracker = 1;
+      }
+      if(key == '#') { 
+        state = 'g';
+        menuTracker = 0;
+        counter = 0;
+        Serial.println("g: Longitude");
+        Serial.println(GPSInputLat);
+      }
+      else if(key == '*') { 
+        state = 'c';
+        menuTracker = 0;
+        GPSInputLat = 0;
+        counter = 0;
+        Serial.println("c: GPS Inout");
+      }
+      else if(key && (counter < 7)) {
+        GPSInputLat = (GPSInputLat*10) + (key-'0');
+        lcd.setCursor(0,2);
+        lcd.print(GPSInputLat);
+        counter++;
+      }
       break;
 
     case 'g': 
       // Display Longitude input line and take input
       // If select pressed run dial movement routine to input and then move to state f
       // If back is pressed move to state f
+      if(!menuTracker) {
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("GPS Input Mode");
+        lcd.setCursor(0,1);
+        lcd.print("Enter Longitude 5D.P");
+        lcd.setCursor(0,3);
+        lcd.print("Exit: Back(*)");
+        lcd.setCursor(0,2);
+        menuTracker = 1;
+      }
+      if(key == '#') { 
+        //decca(GPSInputLat,GPSInputLong);
+        state = 'c';
+        menuTracker = 0;
+        GPSInputLat = 0;
+        GPSInputLong = 0;
+        counter = 0;
+        Serial.println("c: Longitude");
+        Serial.println(GPSInputLong);
+      }
+      else if(key == '*') { 
+        state = 'f';
+        menuTracker = 0;
+        GPSInputLat = 0;
+        GPSInputLong = 0;
+        counter = 0;
+        Serial.println("c: GPS Input");
+      }
+      else if(key && (counter < 8)) {
+        GPSInputLong = (GPSInputLong*10) + (key-'0');
+        lcd.setCursor(0,2);
+        lcd.print(GPSInputLong);
+        counter++;
+      }
       break;
 
   /* Location Menu */
