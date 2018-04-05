@@ -1,3 +1,4 @@
+#include <SoftwareSerial.h>
 #include <Adafruit_GPS.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <Wire.h>
@@ -9,9 +10,9 @@
 #define baseFrequency 14046670   // Base Frequency in mHz
 
 /* Comparason Wavelengths - All lambda/2*/
-const unsigned int lambdaMR = 890;
-const unsigned int lambdaMG = 1186;
-const unsigned int lambdaMP = 711;
+const unsigned int lambdaMR PROGMEM = 890;
+const unsigned int lambdaMG PROGMEM = 1186;
+const unsigned int lambdaMP PROGMEM = 711;
 
 /* Location Data - decimal lat and long - 1 = 0.71555 */
 #define stepSize 10
@@ -54,6 +55,11 @@ const unsigned int lambdaMP = 711;
 /* Globals */
 float currentLat = 5079251;
 float currentLong = -111550;
+boolean menuTracker = 0;
+long GPSInputLat = 0;
+long GPSInputLong = 0;
+byte counter = 0;
+int milliseconds = 0;
 
 /* I/O */
 char state = 'a';
@@ -74,10 +80,10 @@ Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, rows, cols );
 // LCD
 Adafruit_LiquidCrystal lcd(0);
 
-boolean menuTracker = 0;
-long GPSInputLat = 0;
-long GPSInputLong = 0;
-byte counter = 0;
+// GPS
+SoftwareSerial mySerial(3, 2);
+Adafruit_GPS GPS(&mySerial);
+boolean usingInterrupt = false;
 
 // PWM Driver
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
@@ -193,14 +199,40 @@ boolean decca(long targetLat, long targetLong) {
   return 1;
 }
 
+// Interrupt is called once a millisecond, looks for any new GPS data, and stores it
+SIGNAL(TIMER0_COMPA_vect) {
+  char c = GPS.read();
+  
+}
+
+void useInterrupt(boolean v) {
+  if (v) {
+    // Timer0 is already used for millis() - we'll just interrupt somewhere
+    // in the middle and call the "Compare A" function above
+    OCR0A = 0xAF;
+    TIMSK0 |= _BV(OCIE0A);
+    usingInterrupt = true;
+  } else {
+    // do not call the interrupt function COMPA anymore
+    TIMSK0 &= ~_BV(OCIE0A);
+    usingInterrupt = false;
+  }
+}
+
 void setup() {
-  // put your setup code here, to run once:
+  // LCD + PWM Setup
   Serial.begin(115200);
   lcd.begin(20,4);
   pwm.begin();
   pwm.setPWMFreq(PWMFreq);
   pinMode(PWMEnable, OUTPUT);
   digitalWrite(PWMEnable, LOW);
+
+  // GPS Setup
+  GPS.begin(9600);
+  GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
+  GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
+  useInterrupt(true);
   
   Serial.print("Start Lat: ");
   Serial.println(currentLat);
@@ -209,6 +241,14 @@ void setup() {
 }
 
 void loop() {
+  if (GPS.newNMEAreceived()) {
+    // a tricky thing here is if we print the NMEA sentence, or data
+    // we end up not listening and catching other sentences! 
+    // so be very wary if using OUTPUT_ALLDATA and trytng to print out data
+    //Serial.println(GPS.lastNMEA());   // this also sets the newNMEAreceived() flag to false
+  
+    if (!GPS.parse(GPS.lastNMEA()));   // this also sets the newNMEAreceived() flag to false
+  }
   /* Main Menu */
   key = keypad.getKey();
 
@@ -234,16 +274,13 @@ void loop() {
       if(key == '8') { // If down is pressed go to state b
         state = 'b';
         menuTracker = 0;
-        Serial.println("b: Locations");
       }
       else if(key == '2') { // If up is pressed go to state d
         state = 'd';
         menuTracker = 0;
-        Serial.println("d: Settings");
       }
       else if(key == '#') { // If select is pressed to to state e (GPS Tracker)
         state = 'e';
-        Serial.println("e: GPS Tracker");
         menuTracker = 0;
       }
       break;
@@ -269,17 +306,14 @@ void loop() {
       if(key == '8') { // If down is pressed go to state c
         state = 'c';
         menuTracker = 0;
-        Serial.println("c: GPS Input");
       }
       else if(key == '2') { // If up is pressed go to state a
         state = 'a';
         menuTracker = 0;
-        Serial.println("a: GPS Tracker");
       }
       else if(key == '#') { // If select is pressed to to state Location Menu
         state = 'h';
         menuTracker = 0;
-        Serial.println("h: Location 1");
       }
       break;
 
@@ -304,17 +338,14 @@ void loop() {
       if(key == '8') { // If down is pressed go to state d
         state = 'd';
         menuTracker = 0;
-        Serial.println("d: Settings");
       }
       else if(key == '2') { // If up is pressed go to state b
         state = 'b';
         menuTracker = 0;
-        Serial.println("b: Locations");
       }
       else if(key == '#') { // If select is pressed to to state f (GPS Input)
         state = 'f';
         menuTracker = 0;
-        Serial.println("f: GPS Input - Though I didn't actually go there");
       }
       break;
 
@@ -338,20 +369,17 @@ void loop() {
       if(key == '8') { // If down is pressed go to state a
         state = 'a';
         menuTracker = 0;
-        Serial.println("a: GPS Tracker");
       }
       else if(key == '2') { // If up is pressed go to state c
         state = 'c';
         menuTracker = 0;
-        Serial.println("c: GPS Input");
       }
       else if(key == '#') { // If select is pressed to to state Settings
         //state = 'a';
-        Serial.println("DOES NOT EXIST YET - Though I didn't actually go there");
       }
       break;
 
-  /* GPS Tracking menu */
+  /* GPS Tracking Splash */
     case 'e':
       // Display GPS Tracker Splash
       // Start GPS tracking routine
@@ -359,11 +387,17 @@ void loop() {
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("GPS Tracking Mode");
+        lcd.setCursor(0,1);
+        lcd.print("Awaiting GPS Fix");
         lcd.setCursor(0,3);
         lcd.print("Exit: Back(*)");
         menuTracker = 1;
       }
-      //Find GPS Location
+      // Get location
+      if(GPS.fix) {
+        menuTracker = 0;
+        state = 'p';
+      }
       //Drive Dial
       if(key == '*') {
         state = 'a';
@@ -392,7 +426,7 @@ void loop() {
         menuTracker = 0;
         counter = 0;
         Serial.println("g: Longitude");
-        Serial.println(GPSInputLat);
+       // Serial.println(GPSInputLat);
       }
       else if(key == '*') { 
         state = 'c';
@@ -431,8 +465,6 @@ void loop() {
         GPSInputLat = 0;
         GPSInputLong = 0;
         counter = 0;
-        Serial.println("c: Longitude");
-        Serial.println(GPSInputLong);
       }
       else if(key == '*') { 
         state = 'f';
@@ -440,7 +472,7 @@ void loop() {
         GPSInputLat = 0;
         GPSInputLong = 0;
         counter = 0;
-        Serial.println("c: GPS Input");
+
       }
       else if(key && (counter < 8)) {
         GPSInputLong = (GPSInputLong*10) + (key-'0');
@@ -472,15 +504,12 @@ void loop() {
       if(key == '8') { // If down pressed go to state i
         state = 'i';
         menuTracker = 0;
-        Serial.println("i: Location 2");
       }
       else if(key == '2') { // If up pressed to to state o
         state = 'o';
         menuTracker = 0;
-        Serial.println("o: Loaction 8");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 1 
-        Serial.println("Going to Location 1");
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("Moving to");
@@ -492,7 +521,6 @@ void loop() {
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
-        Serial.println("b: Locations");
       }
       break;
 
@@ -517,15 +545,12 @@ void loop() {
       if(key == '8') { // If down pressed go to state j
         state = 'j';
         menuTracker = 0;
-        Serial.println("j: Location 3");
       }
       else if(key == '2') { // If up pressed to to state h
         state = 'h';
         menuTracker = 0;
-        Serial.println("h: Loaction 1");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 2 
-        Serial.println("Going to Spinnaker Tower");
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("Moving to");
@@ -537,7 +562,6 @@ void loop() {
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
-        Serial.println("b: Locations");
       }
       break;
 
@@ -562,15 +586,12 @@ void loop() {
       if(key == '8') { // If down pressed go to state k
         state = 'k';
         menuTracker = 0;
-        Serial.println("k: Location 4");
       }
       else if(key == '2') { // If up pressed go to state i
         state = 'i';
         menuTracker = 0;
-        Serial.println("i: Loaction 2");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 3
-        Serial.println("Going to Location 3");
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("Moving to");
@@ -582,7 +603,6 @@ void loop() {
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
-        Serial.println("b: Locations");
       }
       break;
 
@@ -607,15 +627,12 @@ void loop() {
       if(key == '8') { // If down pressed go to state l
         state = 'l';
         menuTracker = 0;
-        Serial.println("l: Location 5");
       }
       else if(key == '2') { // If up pressed go to state j
         state = 'j';
         menuTracker = 0;
-        Serial.println("j: Loaction 3");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 4 
-        Serial.println("Going to Location 4");
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("Moving to");
@@ -627,7 +644,6 @@ void loop() {
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
-        Serial.println("b: Locations");
       }
       break;
 
@@ -652,15 +668,12 @@ void loop() {
       if(key == '8') { // If down pressed go to state m
         state = 'm';
         menuTracker = 0;
-        Serial.println("m: Location 6");
       }
       else if(key == '2') { // If up pressed to to state k
         state = 'k';
         menuTracker = 0;
-        Serial.println("k: Loaction 4");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 5 
-        Serial.println("Going to Slapton Sands");
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("Moving to");
@@ -672,7 +685,6 @@ void loop() {
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
-        Serial.println("b: Locations");
       }
       break;
 
@@ -697,15 +709,12 @@ void loop() {
       if(key == '8') { // If down pressed go to state n
         state = 'n';
         menuTracker = 0;
-        Serial.println("n: Location 7");
       }
       else if(key == '2') { // If up pressed to to state l
         state = 'l';
         menuTracker = 0;
-        Serial.println("l: Loaction 5");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 6 
-        Serial.println("Going to Location 6");
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("Moving to");
@@ -717,7 +726,6 @@ void loop() {
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
-        Serial.println("b: Locations");
       }
       break;
 
@@ -742,15 +750,12 @@ void loop() {
       if(key == '8') { // If down pressed go to state o
         state = 'o';
         menuTracker = 0;
-        Serial.println("o: Location 8");
       }
       else if(key == '2') { // If up pressed to to state m
         state = 'm';
         menuTracker = 0;
-        Serial.println("m: Loaction 6");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 7 
-        Serial.println("Going to Portland");
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("Moving to");
@@ -762,7 +767,6 @@ void loop() {
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
-        Serial.println("b: Locations");
       }
       break;
 
@@ -787,23 +791,46 @@ void loop() {
       if(key == '8') { // If down pressed go to state h
         state = 'h';
         menuTracker = 0;
-        Serial.println("h: Location 1");
       }
       else if(key == '2') { // If up pressed to to state n
         state = 'n';
         menuTracker = 0;
-        Serial.println("n: Loaction 7");
       }
       else if(key == '#') { // If select pressed run dial routine to Location 8 
-        Serial.println("Going to Location 8");
       }
       else if(key == '*') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
-        Serial.println("b: Locations");
       }
       break;
-      
+    case 'p':
+      if(!menuTracker) {
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("GPS Tracking Mode");
+        lcd.setCursor(0,1);
+        lcd.print("Lat:");
+        lcd.setCursor(0,2);
+        lcd.print("Long:");
+        lcd.setCursor(0,3);
+        lcd.print("Exit: Back(*)");
+        menuTracker = 1;
+      }
+      if(!GPS.fix) {
+        menuTracker = 0;
+        state = 'e';
+      }
+      else if((millis()-milliseconds) >1000) {
+        lcd.setCursor(4,1);
+        lcd.print(GPS.latitudeDegrees,5);
+        lcd.setCursor(5,2);
+        lcd.print(GPS.longitudeDegrees,5);
+        decca((GPS.latitudeDegrees*100000),(GPS.longitudeDegrees*100000));
+      }
+      if(key == '*') {
+        state = 'a';
+        menuTracker = 0;
+      }
     default:
       break;
   }
