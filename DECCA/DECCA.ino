@@ -9,12 +9,12 @@
 /* Frequency Data */
 #define baseFrequency 14046670   // Base Frequency in mHz
 
-/* Comparason Wavelengths - All lambda/2*/
-const unsigned int lambdaMR PROGMEM = 890;
-const unsigned int lambdaMG PROGMEM = 1186;
-const unsigned int lambdaMP PROGMEM = 711;
+/* Comparason Wavelengths - All lambda*/
+const unsigned long lambdaMR = 889;
+const unsigned long lambdaMG = 1186;
+const unsigned long lambdaMP = 711;
 
-/* Location Data - decimal lat and long - 1 = 0.71555 */
+/* Location Data - decimal lat and long - 1 = ~0.71555 */
 #define stepSize 10
 
 #define masterLat 5023300
@@ -56,8 +56,8 @@ const unsigned int lambdaMP PROGMEM = 711;
 float currentLat = 5079251;
 float currentLong = -111550;
 boolean menuTracker = 0;
-long GPSInputLat = 0;
-long GPSInputLong = 0;
+String GPSInputLat = "";
+String GPSInputLong = "";
 byte counter = 0;
 int milliseconds = 0;
 
@@ -66,15 +66,15 @@ char state = 'a';
 char key = 'a';
 // Keypad
 const byte rows = 4; //four rows
-const byte cols = 3; //three columns
+const byte cols = 4; //three columns
 char keys[rows][cols] = {
-  {'1','2','3'},
-  {'4','5','6'},
-  {'7','8','9'},
-  {'*','0','#'}
+  {'1','2','3','u'},
+  {'4','5','6','d'},
+  {'7','8','9','b'},
+  {'-','0','#','s'}
 };
-byte rowPins[rows] = {11, 6, 7, 9}; //connect to the row pinouts of the keypad
-byte colPins[cols] = {10, 12, 8}; //connect to the column pinouts of the keypad
+byte rowPins[rows] = {11, A2, A1, 13}; //connect to the row pinouts of the keypad
+byte colPins[cols] = {12, 10, A0, 9}; //connect to the column pinouts of the keypad
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, rows, cols );
 
 // LCD
@@ -88,21 +88,23 @@ boolean usingInterrupt = false;
 // PWM Driver
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 #define PWMFreq 500
-// Pins
-#define redSin 0
-#define redCos 0
-#define greenSin 0
-#define greenCos 0
-#define purpleSin 14
-#define purpleCos 15
+// Pins - Sine is horizontal, Cosine is vertical
+#define redSin 14
+#define redCos 15
+#define greenSin 9
+#define greenCos 8
+#define purpleSin 10
+#define purpleCos 11
 #define PWMEnable A3
 
+/* Function Start */
 
 long stepNumber(long startLat, long startLong, long targetLat, long targetLong) {
   /* Calculates the number of steps needed to move from start to target at step size */
-  long x = abs((startLat - targetLat)/stepSize);
-  long y = abs((startLong - targetLong)/stepSize);
-
+  long x = (startLat - targetLat)/stepSize;
+  x = abs(x);
+  long y = (startLong - targetLong)/stepSize;
+  y = abs(y);
   if(x > y){
     return x;
   }
@@ -131,43 +133,43 @@ long haversine(float startLat, float startLong, float targetLat, float targetLon
 
   float a = sq(sin(deltaLatRad/2)) + (cos(startLatRad)*cos(targetLatRad)*sq(sin(deltaLongRad/2)));
   float c = 2 * atan2(sqrt(a),sqrt(1-a));
-  return earthRadiusM * c;
+  return (long)earthRadiusM * c;
 }
 
 boolean dialDrive(long targetLat, long targetLong) {
   /* Calculates and then drive dials to the input position */
-    // 2*pi approximation -> 710/113
+  // 2*pi approximation -> 710/113
   long distanceMaster = 0;
   long distanceRed = 0;
   long distanceGreen = 0;
   long distancePurple = 0;
-  float phaseMaster = 0;
   float phaseRed = 0;
   float phaseGreen = 0;
   float phasePurple = 0;
 
   // Distance to master transmitter
-  distanceMaster = abs(haversine(targetLat, targetLong, masterLat, masterLong));
-
+  distanceMaster = haversine(targetLat, targetLong, masterLat, masterLong);
+  //distanceMaster = abs(distanceMaster);
 
   // Red Dial
-  distanceRed = abs(haversine(targetLat, targetLong, redLat, redLong));
+  distanceRed = haversine(targetLat, targetLong, redLat, redLong);
   phaseRed = distanceRed - distanceMaster;
   phaseRed = (710*phaseRed)/(113*lambdaMR);
   pwm.setPin(redSin,(2047*sin(phaseRed) + 2048));
   pwm.setPin(redCos,(2047*cos(phaseRed) + 2048));
   
   // Green Dial
-  distanceGreen = abs(haversine(targetLat, targetLong, greenLat, greenLong));
+  distanceGreen = haversine(targetLat, targetLong, greenLat, greenLong);
   phaseGreen = distanceGreen - distanceMaster;
   phaseGreen = (710*phaseGreen)/(113*lambdaMG);
   pwm.setPin(greenSin,(2047*sin(phaseGreen) + 2048));
   pwm.setPin(greenCos,(2047*cos(phaseGreen) + 2048));
   
   // Purple Dial
-  distancePurple = abs(haversine(targetLat, targetLong, purpleLat, purpleLong));
+  distancePurple = haversine(targetLat, targetLong, purpleLat, purpleLong);
   phasePurple = distancePurple - distanceMaster;
-  phasePurple = (710*phasePurple)/(113*lambdaMP);
+  phasePurple = (710*phasePurple);
+  phasePurple = phasePurple/(113*lambdaMP);
   pwm.setPin(purpleSin,(2047*sin(phasePurple) + 2048));
   pwm.setPin(purpleCos,(2047*cos(phasePurple) + 2048));
 
@@ -175,27 +177,39 @@ boolean dialDrive(long targetLat, long targetLong) {
 }
 
 boolean decca(long targetLat, long targetLong) {
+  boolean goalLat = 0;
+  boolean goalLong = 0;
+  float latTest = 0;
+  float longTest = 0;
   long steps = stepNumber(currentLat, currentLong, targetLat, targetLong);
   float distanceLat = stepDistance(currentLat, targetLat, steps);
   float distanceLong = stepDistance(currentLong, targetLong, steps);
 
-  for(int x = 0; x < steps; x++) {
-    currentLat += distanceLat;
-    currentLong += distanceLong;
+  while(!goalLat || !goalLong) {
+    if(!goalLat) {
+      currentLat += distanceLat;
+    }
+    if(!goalLong) {
+      currentLong += distanceLong;
+    }
     dialDrive(currentLat, currentLong);
-    delay(1);
     
-    Serial.print(x);
-    Serial.print("/");
-    Serial.println(steps - 1);
+    latTest = (targetLat - currentLat)/distanceLat;
+    latTest = abs(latTest);
+    if(latTest < 1){
+      goalLat = 1;
+    }
+    longTest = (targetLong - currentLong)/distanceLong;
+    longTest = abs(longTest);
+    if(longTest < 1) {
+      goalLong = 1;
+    }
+    delay(1);
   }
+
   currentLat = targetLat;
   currentLong = targetLong;
   dialDrive(currentLat, currentLong);
-  Serial.print("Final Lat: ");
-  Serial.println(currentLat);
-  Serial.print("Final Long: ");
-  Serial.println(currentLong);
   return 1;
 }
 
@@ -234,19 +248,12 @@ void setup() {
   GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
   useInterrupt(true);
   
-  Serial.print("Start Lat: ");
-  Serial.println(currentLat);
-  Serial.print("Start Long: ");
-  Serial.println(currentLong);
+  decca(haslarMarinaLat, haslarMarinaLong);
+
 }
 
 void loop() {
   if (GPS.newNMEAreceived()) {
-    // a tricky thing here is if we print the NMEA sentence, or data
-    // we end up not listening and catching other sentences! 
-    // so be very wary if using OUTPUT_ALLDATA and trytng to print out data
-    //Serial.println(GPS.lastNMEA());   // this also sets the newNMEAreceived() flag to false
-  
     if (!GPS.parse(GPS.lastNMEA()));   // this also sets the newNMEAreceived() flag to false
   }
   /* Main Menu */
@@ -271,15 +278,15 @@ void loop() {
         menuTracker = 1;
       }
       
-      if(key == '8') { // If down is pressed go to state b
+      if(key == 'd') { // If down is pressed go to state b
         state = 'b';
         menuTracker = 0;
       }
-      else if(key == '2') { // If up is pressed go to state d
+      else if(key == 'u') { // If up is pressed go to state d
         state = 'd';
         menuTracker = 0;
       }
-      else if(key == '#') { // If select is pressed to to state e (GPS Tracker)
+      else if(key == 's') { // If select is pressed to to state e (GPS Tracker)
         state = 'e';
         menuTracker = 0;
       }
@@ -303,15 +310,15 @@ void loop() {
         menuTracker = 1;
       }
       
-      if(key == '8') { // If down is pressed go to state c
+      if(key == 'd') { // If down is pressed go to state c
         state = 'c';
         menuTracker = 0;
       }
-      else if(key == '2') { // If up is pressed go to state a
+      else if(key == 'u') { // If up is pressed go to state a
         state = 'a';
         menuTracker = 0;
       }
-      else if(key == '#') { // If select is pressed to to state Location Menu
+      else if(key == 's') { // If select is pressed to to state Location Menu
         state = 'h';
         menuTracker = 0;
       }
@@ -335,15 +342,15 @@ void loop() {
         menuTracker = 1;
       }
       
-      if(key == '8') { // If down is pressed go to state d
+      if(key == 'd') { // If down is pressed go to state d
         state = 'd';
         menuTracker = 0;
       }
-      else if(key == '2') { // If up is pressed go to state b
+      else if(key == 'u') { // If up is pressed go to state b
         state = 'b';
         menuTracker = 0;
       }
-      else if(key == '#') { // If select is pressed to to state f (GPS Input)
+      else if(key == 's') { // If select is pressed to to state f (GPS Input)
         state = 'f';
         menuTracker = 0;
       }
@@ -366,16 +373,17 @@ void loop() {
         lcd.print(" Settings");
         menuTracker = 1;
       }
-      if(key == '8') { // If down is pressed go to state a
+      if(key == 'd') { // If down is pressed go to state a
         state = 'a';
         menuTracker = 0;
       }
-      else if(key == '2') { // If up is pressed go to state c
+      else if(key == 'u') { // If up is pressed go to state c
         state = 'c';
         menuTracker = 0;
       }
-      else if(key == '#') { // If select is pressed to to state Settings
-        //state = 'a';
+      else if(key == 's') { // If select is pressed to to state Settings
+        state = 'q';
+        menuTracker = 0;
       }
       break;
 
@@ -390,7 +398,7 @@ void loop() {
         lcd.setCursor(0,1);
         lcd.print("Awaiting GPS Fix");
         lcd.setCursor(0,3);
-        lcd.print("Exit: Back(*)");
+        lcd.print("Exit: Back");
         menuTracker = 1;
       }
       // Get location
@@ -399,7 +407,7 @@ void loop() {
         state = 'p';
       }
       //Drive Dial
-      if(key == '*') {
+      if(key == 'b') {
         state = 'a';
         menuTracker = 0;
       }
@@ -417,26 +425,25 @@ void loop() {
         lcd.setCursor(0,1);
         lcd.print("Enter Latitude 5D.P");
         lcd.setCursor(0,3);
-        lcd.print("Exit: Back(*)");
+        lcd.print("Exit: Back");
         lcd.setCursor(0,2);
         menuTracker = 1;
       }
-      if(key == '#') { 
+      if(key == 's') { 
         state = 'g';
         menuTracker = 0;
         counter = 0;
         Serial.println("g: Longitude");
-       // Serial.println(GPSInputLat);
       }
-      else if(key == '*') { 
+      else if(key == 'b') { 
         state = 'c';
         menuTracker = 0;
-        GPSInputLat = 0;
+        GPSInputLat = "";
         counter = 0;
         Serial.println("c: GPS Inout");
       }
-      else if(key && (counter < 7)) {
-        GPSInputLat = (GPSInputLat*10) + (key-'0');
+      else if(key && (counter < 8)) {
+        GPSInputLat = String(GPSInputLat + key);
         lcd.setCursor(0,2);
         lcd.print(GPSInputLat);
         counter++;
@@ -458,24 +465,24 @@ void loop() {
         lcd.setCursor(0,2);
         menuTracker = 1;
       }
-      if(key == '#') { 
-        //decca(GPSInputLat,GPSInputLong);
+      if(key == 's') { 
+        decca(GPSInputLat.toInt(),GPSInputLong.toInt());
         state = 'c';
         menuTracker = 0;
-        GPSInputLat = 0;
-        GPSInputLong = 0;
+        GPSInputLat = "";
+        GPSInputLong = "";
         counter = 0;
       }
-      else if(key == '*') { 
+      else if(key == 'b') { 
         state = 'f';
         menuTracker = 0;
-        GPSInputLat = 0;
-        GPSInputLong = 0;
+        GPSInputLat = "";
+        GPSInputLong = "";
         counter = 0;
 
       }
-      else if(key && (counter < 8)) {
-        GPSInputLong = (GPSInputLong*10) + (key-'0');
+      else if(key && (counter < 9)) {
+        GPSInputLong = String(GPSInputLong + key);
         lcd.setCursor(0,2);
         lcd.print(GPSInputLong);
         counter++;
@@ -501,15 +508,15 @@ void loop() {
         menuTracker = 1;
       }
 
-      if(key == '8') { // If down pressed go to state i
+      if(key == 'd') { // If down pressed go to state i
         state = 'i';
         menuTracker = 0;
       }
-      else if(key == '2') { // If up pressed to to state o
+      else if(key == 'u') { // If up pressed to to state o
         state = 'o';
         menuTracker = 0;
       }
-      else if(key == '#') { // If select pressed run dial routine to Location 1 
+      else if(key == 's') { // If select pressed run dial routine to Location 1 
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("Moving to");
@@ -518,7 +525,7 @@ void loop() {
         decca(haslarMarinaLat, haslarMarinaLong);
         menuTracker = 0;
       }
-      else if(key == '*') { // If back pressed go to sate b
+      else if(key == 'b') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
       }
@@ -542,15 +549,15 @@ void loop() {
         menuTracker = 1;
       }
       
-      if(key == '8') { // If down pressed go to state j
+      if(key == 'd') { // If down pressed go to state j
         state = 'j';
         menuTracker = 0;
       }
-      else if(key == '2') { // If up pressed to to state h
+      else if(key == 'u') { // If up pressed to to state h
         state = 'h';
         menuTracker = 0;
       }
-      else if(key == '#') { // If select pressed run dial routine to Location 2 
+      else if(key == 's') { // If select pressed run dial routine to Location 2 
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("Moving to");
@@ -559,7 +566,7 @@ void loop() {
         decca(spinnakerLat, spinnakerLong);
         menuTracker = 0;
       }
-      else if(key == '*') { // If back pressed go to sate b
+      else if(key == 'b') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
       }
@@ -583,15 +590,15 @@ void loop() {
         menuTracker = 1;
       }
       
-      if(key == '8') { // If down pressed go to state k
+      if(key == 'd') { // If down pressed go to state k
         state = 'k';
         menuTracker = 0;
       }
-      else if(key == '2') { // If up pressed go to state i
+      else if(key == 'u') { // If up pressed go to state i
         state = 'i';
         menuTracker = 0;
       }
-      else if(key == '#') { // If select pressed run dial routine to Location 3
+      else if(key == 's') { // If select pressed run dial routine to Location 3
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("Moving to");
@@ -600,7 +607,7 @@ void loop() {
         decca(DDayLat, DDayLong);
         menuTracker = 0;
       }
-      else if(key == '*') { // If back pressed go to sate b
+      else if(key == 'b') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
       }
@@ -624,15 +631,15 @@ void loop() {
         menuTracker = 1;
       }
       
-      if(key == '8') { // If down pressed go to state l
+      if(key == 'd') { // If down pressed go to state l
         state = 'l';
         menuTracker = 0;
       }
-      else if(key == '2') { // If up pressed go to state j
+      else if(key == 'u') { // If up pressed go to state j
         state = 'j';
         menuTracker = 0;
       }
-      else if(key == '#') { // If select pressed run dial routine to Location 4 
+      else if(key == 's') { // If select pressed run dial routine to Location 4 
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("Moving to");
@@ -641,7 +648,7 @@ void loop() {
         decca(omahaLat, omahaLong);
         menuTracker = 0;
       }
-      else if(key == '*') { // If back pressed go to sate b
+      else if(key == 'b') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
       }
@@ -665,15 +672,15 @@ void loop() {
         menuTracker = 1;
       }
       
-      if(key == '8') { // If down pressed go to state m
+      if(key == 'd') { // If down pressed go to state m
         state = 'm';
         menuTracker = 0;
       }
-      else if(key == '2') { // If up pressed to to state k
+      else if(key == 'u') { // If up pressed to to state k
         state = 'k';
         menuTracker = 0;
       }
-      else if(key == '#') { // If select pressed run dial routine to Location 5 
+      else if(key == 's') { // If select pressed run dial routine to Location 5 
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("Moving to");
@@ -682,7 +689,7 @@ void loop() {
         decca(slaptonLat, slaptonLong);
         menuTracker = 0;
       }
-      else if(key == '*') { // If back pressed go to sate b
+      else if(key == 'b') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
       }
@@ -706,15 +713,15 @@ void loop() {
         menuTracker = 1;
       }
       
-      if(key == '8') { // If down pressed go to state n
+      if(key == 'd') { // If down pressed go to state n
         state = 'n';
         menuTracker = 0;
       }
-      else if(key == '2') { // If up pressed to to state l
+      else if(key == 'u') { // If up pressed to to state l
         state = 'l';
         menuTracker = 0;
       }
-      else if(key == '#') { // If select pressed run dial routine to Location 6 
+      else if(key == 's') { // If select pressed run dial routine to Location 6 
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("Moving to");
@@ -723,7 +730,7 @@ void loop() {
         decca(nabLat, nabLong);
         menuTracker = 0;
       }
-      else if(key == '*') { // If back pressed go to sate b
+      else if(key == 'b') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
       }
@@ -747,15 +754,15 @@ void loop() {
         menuTracker = 1;
       }
       
-      if(key == '8') { // If down pressed go to state o
+      if(key == 'd') { // If down pressed go to state o
         state = 'o';
         menuTracker = 0;
       }
-      else if(key == '2') { // If up pressed to to state m
+      else if(key == 'u') { // If up pressed to to state m
         state = 'm';
         menuTracker = 0;
       }
-      else if(key == '#') { // If select pressed run dial routine to Location 7 
+      else if(key == 's') { // If select pressed run dial routine to Location 7 
         lcd.clear();
         lcd.setCursor(0,0);
         lcd.print("Moving to");
@@ -764,7 +771,7 @@ void loop() {
         decca(portlandLat, portlandLong);
         menuTracker = 0;
       }
-      else if(key == '*') { // If back pressed go to sate b
+      else if(key == 'b') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
       }
@@ -788,17 +795,17 @@ void loop() {
         menuTracker = 1;
       }
       
-      if(key == '8') { // If down pressed go to state h
+      if(key == 'd') { // If down pressed go to state h
         state = 'h';
         menuTracker = 0;
       }
-      else if(key == '2') { // If up pressed to to state n
+      else if(key == 'u') { // If up pressed to to state n
         state = 'n';
         menuTracker = 0;
       }
-      else if(key == '#') { // If select pressed run dial routine to Location 8 
+      else if(key == 's') { // If select pressed run dial routine to Location 8 
       }
-      else if(key == '*') { // If back pressed go to sate b
+      else if(key == 'b') { // If back pressed go to sate b
         state = 'b';
         menuTracker = 0;
       }
@@ -827,9 +834,60 @@ void loop() {
         lcd.print(GPS.longitudeDegrees,5);
         decca((GPS.latitudeDegrees*100000),(GPS.longitudeDegrees*100000));
       }
-      if(key == '*') {
+      if(key == 'b') {
         state = 'a';
         menuTracker = 0;
+      }
+      break;
+    case 'q':
+      if(!menuTracker) {
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Settings Menu");
+        lcd.setCursor(0,1);
+        lcd.print(" Dial Zero");
+        lcd.setCursor(0,2);
+        lcd.print("");
+        lcd.setCursor(0,3);
+        lcd.print("");
+        menuTracker = 1;
+      }
+      
+      if(key == 'b') {
+        state = 'd';
+        menuTracker = 0;
+      }
+      else if(key == 's') {
+        state = 'r';
+        menuTracker = 0;
+      }
+      break;
+      
+    case 'r':
+      if(!menuTracker) {
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Dials set to zero");
+        lcd.setCursor(0,1);
+        lcd.print("");
+        lcd.setCursor(0,2);
+        lcd.print("");
+        lcd.setCursor(0,3);
+        lcd.print("");
+        menuTracker = 1;
+      }
+
+      pwm.setPin(redSin,(2047*sin(0) + 2048));
+      pwm.setPin(redCos,(2047*cos(0) + 2048));
+      pwm.setPin(greenSin,(2047*sin(0) + 2048));
+      pwm.setPin(greenCos,(2047*cos(0) + 2048));
+      pwm.setPin(purpleSin,(2047*sin(0) + 2048));
+      pwm.setPin(purpleCos,(2047*cos(0) + 2048));
+      
+      if(key == 'b') {
+        state = 'q';
+        menuTracker = 0;
+        decca(currentLat, currentLong);
       }
     default:
       break;
